@@ -1,8 +1,8 @@
 import requests
-import json
 import itertools
 
 api_key = ""
+champ_data = {}
 
 #Class to hold summoner data
 class Summoner:
@@ -55,7 +55,7 @@ class Champ_Pool:
     
     mastery: int = 0
     pool = []
-    active_summoners = []
+    enabled_summoners = []
     all_summoners = []
 
     #Returns the current list of avalible champs with no duplicates
@@ -67,6 +67,15 @@ class Champ_Pool:
                 no_dupe_pool.append(champ)
         return no_dupe_pool
 
+    def get_pool_as(self,summoner:Summoner) -> list:
+        champ_pool = self.get_pool()
+        summoner_champs = summoner.get_champs_over_value(self.mastery)
+        for champ in summoner_champs:
+            if champ not in champ_pool:
+                continue
+            champ_pool.remove(champ)
+        return champ_pool
+
     def __init__(self,summoners:list[Summoner],mastery:int = 0) -> None:
         self.add_summoners(summoners)
         self.mastery = mastery
@@ -75,70 +84,74 @@ class Champ_Pool:
         return str(self.get_pool())
 
     #Changes the min mastery thresh hold for the champ pool 
-    def change_mastery(self,new_mastery:int) -> None:
+    def set_mastery(self,new_mastery:int) -> None:
         self.mastery = new_mastery
         self.refresh_pool()
 
     #Updates the champ pool with current active summoners
     def refresh_pool(self):
         self.pool.clear()
-        for summoner in self.active_summoners:
+        for summoner in self.enabled_summoners:
             self.pool.extend(summoner.get_champs_over_value(self.mastery))
     
     #Enables all decativated summoners
     #Allows for easy resetting after a game
     def enable_all_summoners(self) -> None:
-        self.active_summoners = self.all_summoners
+        self.enabled_summoners = self.all_summoners
         self.refresh_pool()
-    
-    #Adds a summoner to the pool
+
+    #Enables a group disabled summoners, alowing their champions to being displayed
+    def enable_summoners(self,summoners:list[Summoner]) -> None:
+        for summoner in summoners:
+            if not isinstance(summoner,Summoner):
+                continue
+            for sum in self.enabled_summoners:
+                if sum.puuid != summoner.puuid:
+                    continue
+                if sum in self.all_summoners:
+                    continue
+                self.enabled_summoners.append(sum)
+        self.refresh_pool()
+
+    #Adds summoners to the pool
     def add_summoners(self,summoners) -> None:
         for summoner in summoners:
             if not isinstance(summoner,Summoner):
                 continue
-            if summoner not in self.active_summoners:
-                self.active_summoners.append(summoner)
+            if summoner not in self.enabled_summoners:
+                self.enabled_summoners.append(summoner)
             if summoner not in self.all_summoners:
                 self.all_summoners.append(summoner)
 
-    #Removes a summoners champions from being displayed
+    #Removes summoners champions from being displayed
     def disable_summoners(self,summoners:list[Summoner]) -> None:
         for summoner in summoners:
             if not isinstance(summoner,Summoner):
                 continue
-            if summoner in self.active_summoners:
-                self.active_summoners.remove(summoner)
+            for sum in self.enabled_summoners:
+                if sum.puuid != summoner.puuid:
+                    continue
+                self.enabled_summoners.remove(sum)
         self.refresh_pool()
 
-    #Completely removes a summoner from the pool
+    #Completely removes summoners from the pool
     def remove_summoners(self,summoners:list[Summoner]) -> None:
         for summoner in summoners:
             if not isinstance(summoner,Summoner):
                 continue
-            if summoner in self.active_summoners:
-                self.active_summoners.remove(summoner)
-            if summoner in self.all_summoners:
-                self.active_summoners.remove(summoner)
+            for sum in self.enabled_summoners:
+                if sum.puuid != summoner.puuid:
+                    continue
+                self.enabled_summoners.remove(sum)
+                self.all_summoners.remove(sum)
         self.refresh_pool()
 
-with open("Key.txt") as file:
-    api_key = file.readline()
-    file.close()
 
-champs_data = {}
-champs_raw = requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/data/en_US/champion.json").json()["data"]
-for k in champs_raw.keys():
-    champs_data[champs_raw[k]["key"]] = champs_raw[k]["name"]
-
-jeff = Summoner("IsJeffMyName",champs_data,api_key)
-domo = Summoner("Domodude",champs_data,api_key)
-blank = Summoner("Blankanawana",champs_data,api_key)
-invalid_name = Summoner("thisnameisnotvalid",champs_data,api_key)
-
-c_pool = Champ_Pool([jeff,domo],50000)
-print(c_pool)
-c_pool.add_summoners([invalid_name])
-print(c_pool)
-
-
-
+#Returns champ data
+def get_champ_data() -> dict:
+    #Only calls api if champ data is empty
+    if not champ_data.keys():
+        champs_raw = requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/data/en_US/champion.json").json()["data"]
+        for k in champs_raw.keys():
+            champ_data[champs_raw[k]["key"]] = champs_raw[k]["name"]
+    return champ_data
