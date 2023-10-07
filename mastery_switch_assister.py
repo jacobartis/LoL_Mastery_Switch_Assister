@@ -52,7 +52,7 @@ class Summoner:
 
 #Class for managing a champ pools
 class Champ_Pool:
-    
+    id = itertools.count()
     mastery: int = 0
     pool = []
     enabled_summoners = []
@@ -76,9 +76,22 @@ class Champ_Pool:
             champ_pool.remove(champ)
         return champ_pool
 
-    def __init__(self,summoners:list[Summoner],mastery:int = 0) -> None:
-        self.add_summoners(summoners)
-        self.mastery = mastery
+    def to_json(self) -> dict:
+        summoners = []
+        disabled = []
+        for summoner in self.all_summoners:
+            summoners.append(summoner.name)
+        for summoner in self.all_summoners:
+            if summoner not in self.enabled_summoners:
+                disabled.append(summoner.name)
+        json = {
+            "summoners":summoners,
+            "disabled":disabled
+        }
+        return json
+
+    def __init__(self) -> None:
+        self.id = next(self.id)
 
     def __str__(self) -> str:
         return str(self.get_pool())
@@ -144,6 +157,12 @@ class Champ_Pool:
                     continue
                 self.enabled_summoners.remove(sum)
                 self.all_summoners.remove(sum)
+        self.refresh_pool()
+    
+    #Clears all summoners
+    def clear_summoners(self) -> None:
+        self.enabled_summoners.clear()
+        self.all_summoners.clear()
         self.refresh_pool()
 
 
