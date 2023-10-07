@@ -10,7 +10,7 @@ intents = discord.Intents.all()
 bot = commands.Bot(command_prefix=["\\","~"],intents = intents)
 
 #command to add summoners to the pool
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="add",help = "Adds summoners to the pool (You can add mutiple at once by surrounding them in quotes).")
 async def add_summoners(ctx, names):
     try:
@@ -23,14 +23,13 @@ async def add_summoners(ctx, names):
             summoners.append(summoner)
         champ_pool.add_summoners(summoners)
         await ctx.channel.send("added summoners: "+str(names))
-
         save_summoners()
         
     except Exception as e:
         await ctx.channel.send("error lol: "+str(e))
 
-#command to dissable summoners from the pool
-@commands.has_role("*")
+#command to disable summoners from the pool
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="disable",help = "Disable summoners in the pool, can be enabled again using enable or enable_all commands (You can disable mutiple summoners at once by surrounding them in quotes).")
 async def disable_summoners(ctx, names):
     try:
@@ -48,7 +47,7 @@ async def disable_summoners(ctx, names):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to remove summoners from the pool
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="remove",help = "Remove summoners in the pool (You can remove mutiple summoners at once by surrounding them in quotes).")
 async def remove_summoners(ctx, names):
     try:
@@ -61,13 +60,13 @@ async def remove_summoners(ctx, names):
             summoners.append(summoner)
         champ_pool.remove_summoners(summoners)
         await ctx.channel.send("Removed summoners: "+str(names))
-        
+        save_summoners()
     except Exception as e:
         await ctx.channel.send("error lol: "+str(e))
 
 #command to enable summoners from the pool
-@commands.has_role("*")
-@bot.command(name="enable",help = "Enable dissabled summoners in the pool (You can enable mutiple summoners at once by surrounding them in quotes).")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
+@bot.command(name="enable",help = "Enable disabled summoners in the pool (You can enable mutiple summoners at once by surrounding them in quotes).")
 async def enable_summoners(ctx, names):
     try:
         assert(str(names))
@@ -84,8 +83,8 @@ async def enable_summoners(ctx, names):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to enable all summoners in the pool
-@commands.has_role("*")
-@bot.command(name="enable_all",help = "Enables all dissabled summoners in the pool.")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
+@bot.command(name="enable_all",help = "Enables all disabled summoners in the pool.")
 async def enable_all_summoners(ctx):
     try:
         champ_pool.enable_all_summoners()
@@ -95,7 +94,7 @@ async def enable_all_summoners(ctx):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to set the pool mastery value
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="mastery",help = "Sets the mastery value of the pool.")
 async def set_mastery(ctx, value):
     try:
@@ -106,7 +105,7 @@ async def set_mastery(ctx, value):
         await ctx.channel.send("error lol")
 
 #command to show the current pool
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="show",help = "Shows the current pool.")
 async def show_pool(ctx):
     try:
@@ -115,7 +114,7 @@ async def show_pool(ctx):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to show the current pool as a player
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="show_as",help = "Shows the current pool as a summoner (removes their champs from the pool).")
 async def show_pool_as(ctx,name):
     try:
@@ -127,7 +126,7 @@ async def show_pool_as(ctx,name):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to show all summoners 
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="summoners",help = "Shows all summoners in the pool (even disabled ones).")
 async def show_summoners(ctx):
     try:
@@ -139,7 +138,7 @@ async def show_summoners(ctx):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to show the enabled summoners
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="summoners_enabled",help = "Shows enabled summoners in the pool.")
 async def show_summoners_enabled(ctx):
     try:
@@ -151,7 +150,7 @@ async def show_summoners_enabled(ctx):
         await ctx.channel.send("error lol: "+str(e))
 
 #command to show the disabled summoners
-@commands.has_role("*")
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="summoners_disabled",help = "Shows disabled summoners in the pool.")
 async def show_summoners_disabled(ctx):
     try:
@@ -164,14 +163,23 @@ async def show_summoners_disabled(ctx):
     except Exception as e:
         await ctx.channel.send("error lol: "+str(e))
 
+#command to clear all summoners from the pool
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
+@bot.command(name="clear",help = "Removes all summoners from the pool.")
+async def clear(ctx):
+    try:
+        champ_pool.clear_summoners()
+        await ctx.channel.send("Removing all summoners!")
+        save_summoners()
+    except Exception as e:
+        await ctx.channel.send("error lol: "+str(e))
+
+
 def save_summoners():
     with open("summoners.json","w") as file:
         file.write(json.dumps(champ_pool.to_json(), indent=4))
 
 champ_pool = msa.Champ_Pool()
-
-
-
 
 
 #Reads the Riot key from RiotApiKey.txt
