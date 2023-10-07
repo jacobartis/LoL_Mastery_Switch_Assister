@@ -160,3 +160,4 @@ cython_debug/
 #.idea/
 RiotApiKey.txt
 DiscordApiKey.txt
+summoners.json
