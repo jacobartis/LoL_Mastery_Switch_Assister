@@ -1,6 +1,5 @@
 import requests
 import itertools
-from io import BytesIO
 
 api_key = ""
 champ_data = {}
@@ -73,13 +72,6 @@ class Champ_Pool:
             no_dupe_pool.append(champ)
         return no_dupe_pool
 
-    #Returns the current pool as champion icons
-    def get_pool_img(self) -> list:
-        img_list = []
-        for champ in self.get_pool():
-            img_list.append(get_champ_icon_url(champ))
-        return img_list
-
     #Returns the current champ pool minus the given summoners champs
     def get_pool_as(self,summoners:list[Summoner]) -> list:
         champ_pool = self.get_pool()
@@ -90,14 +82,6 @@ class Champ_Pool:
                     continue
                 champ_pool.remove(champ)
         return champ_pool
-
-    #Returns the get pool as result as a list of champion icons
-    def get_pool_img_as(self,summoners:list[Summoner]) -> list:
-        champs = self.get_pool_as(summoners)
-        img_pool = []
-        for champ in champs:
-            img_pool.append(get_champ_icon_url(champ))
-        return img_pool
 
     def __init__(self) -> None:
         self.id = next(self.id)
@@ -214,13 +198,12 @@ def get_summoner_in(summoner:Summoner,list:list[Summoner]) -> Summoner:
     return None
 
 #Returns the given champ icon
-def get_champ_icon_png(champ_name:str):
-    return BytesIO(requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/img/champion/"+champ_name+".png").content)
-
-def get_champ_icon_url(champ_name:str):
-    return "http://ddragon.leagueoflegends.com/cdn/13.19.1/img/champion/"+champ_name+".png"
-
-
+def get_champ_icons(champs:list):
+    images = []
+    for champ in champs:
+        champ_name = get_champ_id(champ)
+        images.append(requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/img/champion/"+champ_name+".png").content)
+    return images
 
 #Returns champ data
 def get_champ_data() -> dict:
@@ -230,3 +213,9 @@ def get_champ_data() -> dict:
         for k in champs_raw.keys():
             champ_data[champs_raw[k]["key"]] = champs_raw[k]["name"]
     return champ_data
+
+def get_champ_id(champ_name) -> str:
+    champs_raw = requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/data/en_US/champion.json").json()["data"]
+    for key in champs_raw.keys():
+        if champs_raw[key]["name"] == champ_name:
+            return champs_raw[key]["id"]
