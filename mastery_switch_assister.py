@@ -1,5 +1,6 @@
 import requests
 import itertools
+from io import BytesIO
 
 api_key = ""
 champ_data = {}
@@ -63,18 +64,35 @@ class Champ_Pool:
         self.refresh_pool()
         no_dupe_pool = []
         for champ in self.pool:
-            if champ not in no_dupe_pool:
-                no_dupe_pool.append(champ)
+            if champ in no_dupe_pool:
+                continue
+            no_dupe_pool.append(champ)
         return no_dupe_pool
 
-    def get_pool_as(self,summoner:Summoner) -> list:
+    def get_pool_img(self) -> list:
+        img_list = []
+        for champ in self.get_pool():
+            img_list.append(get_champ_icon_url(champ))
+        print(len(img_list))
+        return img_list
+
+    def get_pool_as(self,summoners:list[Summoner]) -> list:
         champ_pool = self.get_pool()
-        summoner_champs = summoner.get_champs_over_value(self.mastery)
-        for champ in summoner_champs:
-            if champ not in champ_pool:
-                continue
-            champ_pool.remove(champ)
+        for summoner in summoners:
+            summoner_champs = summoner.get_champs_over_value(self.mastery)
+            for champ in summoner_champs:
+                if champ not in champ_pool:
+                    continue
+                champ_pool.remove(champ)
         return champ_pool
+
+    def get_pool_img_as(self,summoners:list[Summoner]) -> list:
+        champs = self.get_pool_as(summoners)
+        img_pool = []
+        for champ in champs:
+            img_pool.append(get_champ_icon_url(champ))
+        return img_pool
+
 
     def to_json(self) -> dict:
         summoners = []
@@ -86,7 +104,8 @@ class Champ_Pool:
                 disabled.append(summoner.name)
         json = {
             "summoners":summoners,
-            "disabled":disabled
+            "disabled":disabled,
+            "mastery":self.mastery
         }
         return json
 
@@ -164,6 +183,14 @@ class Champ_Pool:
         self.enabled_summoners.clear()
         self.all_summoners.clear()
         self.refresh_pool()
+
+#Returns the given champ icon
+def get_champ_icon_png(champ_name:str):
+    return BytesIO(requests.get("http://ddragon.leagueoflegends.com/cdn/13.19.1/img/champion/"+champ_name+".png").content)
+
+def get_champ_icon_url(champ_name:str):
+    return "http://ddragon.leagueoflegends.com/cdn/13.19.1/img/champion/"+champ_name+".png"
+
 
 
 #Returns champ data
