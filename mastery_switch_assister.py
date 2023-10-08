@@ -7,7 +7,6 @@ champ_data = {}
 
 #Class to hold summoner data
 class Summoner:
-    id = itertools.count()
 
     def __new__(cls,name:str,champ_data:dict,api_key:str):
         if cls.is_valid(name,api_key):
@@ -19,10 +18,11 @@ class Summoner:
     def __init__(self,name:str,champ_data:dict,api_key:str) -> None:
         self.name = name
         self.set_puuid(api_key)
-        
         self.set_mastery(champ_data,api_key)
-        self.id = next(self.id)
     
+    def __str__(self) -> str:
+        return "Name: "+self.name+" ID: "+self.puuid
+
     #Checks the summoner is valid
     def is_valid(name,api_key) ->bool:
         req = "https://euw1.api.riotgames.com"+"/lol/summoner/v4/summoners/by-name/"+name+"?api_key="+api_key
@@ -51,6 +51,10 @@ class Summoner:
                 champ_pool.append(self.mastery[mastery])
         return champ_pool
 
+    #Checks if the given object holds the same data
+    def same_as(self,obj) -> bool:
+        return str(self) == str(obj)
+
 #Class for managing a champ pools
 class Champ_Pool:
     id = itertools.count()
@@ -69,13 +73,14 @@ class Champ_Pool:
             no_dupe_pool.append(champ)
         return no_dupe_pool
 
+    #Returns the current pool as champion icons
     def get_pool_img(self) -> list:
         img_list = []
         for champ in self.get_pool():
             img_list.append(get_champ_icon_url(champ))
-        print(len(img_list))
         return img_list
 
+    #Returns the current champ pool minus the given summoners champs
     def get_pool_as(self,summoners:list[Summoner]) -> list:
         champ_pool = self.get_pool()
         for summoner in summoners:
@@ -86,6 +91,7 @@ class Champ_Pool:
                 champ_pool.remove(champ)
         return champ_pool
 
+    #Returns the get pool as result as a list of champion icons
     def get_pool_img_as(self,summoners:list[Summoner]) -> list:
         champs = self.get_pool_as(summoners)
         img_pool = []
@@ -93,8 +99,11 @@ class Champ_Pool:
             img_pool.append(get_champ_icon_url(champ))
         return img_pool
 
-
-    def to_json(self) -> dict:
+    def __init__(self) -> None:
+        self.id = next(self.id)
+    
+    #Returns the champ pool data as a dict
+    def as_dict(self) -> dict:
         summoners = []
         disabled = []
         for summoner in self.all_summoners:
@@ -102,15 +111,12 @@ class Champ_Pool:
         for summoner in self.all_summoners:
             if summoner not in self.enabled_summoners:
                 disabled.append(summoner.name)
-        json = {
+        data = {
             "summoners":summoners,
             "disabled":disabled,
             "mastery":self.mastery
         }
-        return json
-
-    def __init__(self) -> None:
-        self.id = next(self.id)
+        return data
 
     def __str__(self) -> str:
         return str(self.get_pool())
@@ -135,54 +141,77 @@ class Champ_Pool:
     #Enables a group disabled summoners, alowing their champions to being displayed
     def enable_summoners(self,summoners:list[Summoner]) -> None:
         for summoner in summoners:
+
+            #Checks each summoner is a valid summoner and is in the champ pool
             if not isinstance(summoner,Summoner):
-                continue
-            for sum in self.enabled_summoners:
-                if sum.puuid != summoner.puuid:
-                    continue
-                if sum in self.all_summoners:
-                    continue
-                self.enabled_summoners.append(sum)
+                raise Exception(str(summoner)+" is not a valid summoner object.")
+            if not get_summoner_in(summoner,self.all_summoners):
+                raise Exception(summoner.name+" isn't included in the champ pool. \n Current summoners: "+"\n".join(self.all_summoners))
+            
+            #Enables summoner if disabled
+            if not get_summoner_in(summoner,self.enabled_summoners):
+                self.enabled_summoners.append(summoner)
+        
         self.refresh_pool()
 
     #Adds summoners to the pool
     def add_summoners(self,summoners) -> None:
         for summoner in summoners:
+            
+            #Checks summoner is valid and not in the champ pool already
             if not isinstance(summoner,Summoner):
-                continue
-            if summoner not in self.enabled_summoners:
-                self.enabled_summoners.append(summoner)
-            if summoner not in self.all_summoners:
-                self.all_summoners.append(summoner)
+                raise Exception(str(summoner)+" is not a valid summoner object.")
+            if get_summoner_in(summoner,self.all_summoners):
+                raise Exception(summoner.name+" is already in the pool.")
+            
+            self.enabled_summoners.append(summoner)
+            self.all_summoners.append(summoner)
 
     #Removes summoners champions from being displayed
     def disable_summoners(self,summoners:list[Summoner]) -> None:
         for summoner in summoners:
+
+            #Checks summoner is valid and should be disabled
             if not isinstance(summoner,Summoner):
-                continue
-            for sum in self.enabled_summoners:
-                if sum.puuid != summoner.puuid:
-                    continue
-                self.enabled_summoners.remove(sum)
+                raise Exception(str(summoner)+" is not a valid summoner object.")
+            if not get_summoner_in(summoner,self.all_summoners):
+                raise Exception(summoner.name+" isn't included in the champ pool. \n Current summoners: "+"\n".join(self.all_summoners))
+            if not get_summoner_in(summoner,self.enabled_summoners):
+                raise Exception(summoner.name+" is already disabled.")
+            
+            self.enabled_summoners.remove(get_summoner_in(summoner,self.enabled_summoners))
         self.refresh_pool()
 
     #Completely removes summoners from the pool
     def remove_summoners(self,summoners:list[Summoner]) -> None:
         for summoner in summoners:
+
+            #Checks summoner is valid and in the current pool
             if not isinstance(summoner,Summoner):
-                continue
-            for sum in self.enabled_summoners:
-                if sum.puuid != summoner.puuid:
-                    continue
-                self.enabled_summoners.remove(sum)
-                self.all_summoners.remove(sum)
+                raise Exception(str(summoner)+" is not a valid summoner object.")
+            if not get_summoner_in(summoner,self.all_summoners):
+                raise Exception(summoner.name+" isn't included in the champ pool. \n Current summoners: "+"\n".join(self.all_summoners))
+            
+            #Removes summoner from the pool
+            if get_summoner_in(summoner,self.enabled_summoners):
+                self.enabled_summoners.remove(get_summoner_in(summoner,self.enabled_summoners))
+            self.all_summoners.remove(get_summoner_in(summoner,self.all_summoners))
+
         self.refresh_pool()
-    
+
     #Clears all summoners
     def clear_summoners(self) -> None:
         self.enabled_summoners.clear()
         self.all_summoners.clear()
         self.refresh_pool()
+    
+
+#Returns an pre-existing summoner obj from a list with the same data as the given summoner (if one exists)
+def get_summoner_in(summoner:Summoner,list:list[Summoner]) -> Summoner:
+    for obj in list:
+        if obj.same_as(summoner):
+            return obj
+    return None
 
 #Returns the given champ icon
 def get_champ_icon_png(champ_name:str):
