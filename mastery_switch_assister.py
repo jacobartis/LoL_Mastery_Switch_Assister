@@ -8,14 +8,14 @@ champ_data = {}
 class Summoner:
 
     def __new__(cls,name:str,champ_data:dict,api_key:str):
-        if cls.is_valid(name,api_key):
+        if cls.is_valid(name.lower(),api_key):
             return super(Summoner, cls).__new__(cls)
         else:
             print("Invalid summoner name or api key")
             return None
 
     def __init__(self,name:str,champ_data:dict,api_key:str) -> None:
-        self.name = name
+        self.name = name.lower()
         self.set_puuid(api_key)
         self.set_mastery(champ_data,api_key)
     
@@ -35,20 +35,49 @@ class Summoner:
     
     #Creates a dictionary with mastery points as keys and champ names as values
     def set_mastery(self,champ_data:dict,api_key:str) -> None:
-        res = requests.get("https://euw1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/"+self.puuid+"?api_key="+api_key)
+        res = requests.get("https://euw1.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/"+self.puuid+"?api_key="+api_key).json()
         self.mastery = {}
-        for x in res.json():
+
+        #Request doesn't return champs with 0 mastery
+        #Takes copy of champ list to calculate 0 mastery champs
+        champs = champ_data.copy()
+
+        #Sets mastery for all played champs
+        for x in res:
             points = x["championPoints"]
             id = x["championId"]
-            self.mastery[points] = champ_data[str(id)]
+            self.mastery[champs[str(id)]] = points
+            del champs[str(id)]
+        
+        #Adds champs with 0 mastery
+        for champ in champs:
+             self.mastery[champs[champ]] = 0
     
     #Returns a list of champs of the given mastery value
     def get_champs_over_value(self,value:int) -> list:
         champ_pool = []
-        for mastery in self.mastery.keys():
-            if int(mastery)>=value:
-                champ_pool.append(self.mastery[mastery])
+        for champ in self.mastery.keys():
+            if self.mastery[champ]>=value:
+                champ_pool.append(champ)
         return champ_pool
+
+    #Returns a list of champs under the given mastery value
+    def get_champs_under_value(self,value:int) -> list:
+        champ_pool = []
+        for champ in self.mastery.keys():
+            if self.mastery[champ]<=value:
+                champ_pool.append(champ)
+        return champ_pool
+
+    def get_champ_mastery(self,champ_name:str) -> int:
+
+        if "&" not in champ_name and "'" not in champ_name and " " not in champ_name:
+            champ_name = champ_name.capitalize()
+        
+        if champ_name in self.mastery.keys():
+            return self.mastery[champ_name]
+        raise Exception("Input ",champ_name," is not a valid champ name.")
+        return  None
 
     #Checks if the given object holds the same data
     def same_as(self,obj) -> bool:
@@ -59,22 +88,30 @@ class Champ_Pool:
     id = itertools.count()
     mastery: int = 0
     pool = []
+    under_pool = []
     enabled_summoners = []
     all_summoners = []
 
     #Returns the current list of avalible champs with no duplicates
-    def get_pool(self) -> list:
+    def get_pool(self, under=False) -> list:
         self.refresh_pool()
         no_dupe_pool = []
-        for champ in self.pool:
+        pool = []
+        if under:
+            pool = self.under_pool
+        else:
+            pool = self.pool
+        
+        for champ in pool:
             if champ in no_dupe_pool:
                 continue
             no_dupe_pool.append(champ)
         return no_dupe_pool
 
     #Returns the current champ pool minus the given summoners champs
-    def get_pool_as(self,summoners:list[Summoner]) -> list:
-        champ_pool = self.get_pool()
+    def get_pool_as(self,summoners:list[Summoner], under=False) -> list:
+        champ_pool = self.get_pool(under)
+
         for summoner in summoners:
             summoner_champs = summoner.get_champs_over_value(self.mastery)
             for champ in summoner_champs:
@@ -115,7 +152,12 @@ class Champ_Pool:
         self.pool.clear()
         for summoner in self.enabled_summoners:
             self.pool.extend(summoner.get_champs_over_value(self.mastery))
-    
+        
+        self.under_pool.clear()
+        for summoner in self.enabled_summoners:
+            self.under_pool.extend(summoner.get_champs_under_value(self.mastery))
+
+
     #Enables all decativated summoners
     #Allows for easy resetting after a game
     def enable_all_summoners(self) -> None:
