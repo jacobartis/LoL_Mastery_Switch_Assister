@@ -11,7 +11,7 @@ import mastery_switch_assister as msa
 
 #Creates the bot and sets its prefixes and intents
 intents = discord.Intents.all()
-bot = commands.Bot(command_prefix=["\\","~"],intents = intents)
+bot = commands.Bot(command_prefix=["\\","."],intents = intents)
 
 #command to add summoners to the pool
 @commands.bot_has_permissions(send_messages=True,read_messages=True)
@@ -197,8 +197,33 @@ async def show_pool_error(ctx, error):
     except Exception as e:
         await ctx.channel.send("Error showing champ pool: "+str(e))
 
+#command to show the current pool or the pool of given summoner(s)
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
+@bot.command(name="show_under",help = "Shows the current pool or the pool of given summoner(s).")
+async def show_pool_under(ctx, names):
+    try:
+        assert(str(names))
+        names_list = names.split()
+        pool = []
+        for name in names_list:
+            pool.append("**"+name+"**"+":")
+            summoner = msa.Summoner(name,msa.get_champ_data(),riot_key)
+            assert(summoner != None)
+            pool.extend(summoner.get_champs_under_value(champ_pool.mastery))
+        await ctx.channel.send("__**Champ pool under for summoner(s) "+str(names)+":**__ \n"+"\n".join(pool))
+    except Exception as e:
+        await ctx.channel.send("Error showing champ pool of "+names+": "+str(e))
 
-#               Current WIP
+#Handles errors for showing the pool
+@show_pool_under.error
+async def show_pool_under_error(ctx, error):
+    try:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.channel.send("__**Current pool:**__ \n"+"\n".join(champ_pool.get_pool(True)))
+    except Exception as e:
+        await ctx.channel.send("Error showing champ pool: "+str(e))
+
+
 #command to show the current pool
 @commands.bot_has_permissions(send_messages=True,read_messages=True)
 @bot.command(name="show_img",help = "Shows icons of current pool.")
@@ -347,9 +372,35 @@ async def show_pool_as(ctx,names):
 async def show_pool_as_error(ctx, error):
     try:
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.channel.send("Please include a summoner name to show pool as image.")
+            await ctx.channel.send("Please include a summoner name to show pool as.")
     except Exception as e:
-        await ctx.channel.send("Error showing champ pool as image error : "+str(e))
+        await ctx.channel.send("Error showing champ pool as imageerror : "+str(e))
+
+
+#command to show the mastery of the given champ
+@commands.bot_has_permissions(send_messages=True,read_messages=True)
+@bot.command(name="champ_mastery",help = "Shows the mastery of the given champ for the current summoners.")
+async def show_champ_mastery(ctx, champ_name):
+    try:
+        assert(str(champ_name))
+        summoners = champ_pool.all_summoners
+        masteries = []
+        for summoner in summoners:
+            masteries.append("**"+summoner.name+"**"+":")
+            assert(summoner != None)
+            masteries.append(str(summoner.get_champ_mastery(champ_name)))
+        await ctx.channel.send("__**Mastery of champ "+str(champ_name)+":**__ \n"+"\n".join(masteries))
+    except Exception as e:
+        await ctx.channel.send("Error showing mastery of "+name+": "+str(e))
+
+#Handles errors for showing a champions mastery
+@show_champ_mastery.error
+async def show_champ_mastery(ctx, error):
+    try:
+        if isinstance(error, commands.MissingRequiredArgument):
+            await ctx.channel.send("Error showing champion mastery, no argument given.")
+    except Exception as e:
+        await ctx.channel.send("Error showing champ mastery error: "+str(e))
 
 
 #command to show all summoners 
